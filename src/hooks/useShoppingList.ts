@@ -43,7 +43,43 @@ export function useShoppingList() {
   }, [])
 
   useEffect(() => {
-    fetchItems()
+    let ignore = false
+
+    async function initialFetch() {
+      const [listResult, historyResult] = await Promise.all([
+        supabase
+          .from('shopping_list')
+          .select('*')
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('purchase_history')
+          .select('item_name, purchased_at')
+          .order('purchased_at', { ascending: false }),
+      ])
+
+      if (ignore) return
+
+      if (listResult.error) {
+        console.error('Error fetching shopping list:', listResult.error)
+        setLoading(false)
+        return
+      }
+      setItems(listResult.data ?? [])
+
+      if (historyResult.data) {
+        const map: Record<string, string> = {}
+        for (const row of historyResult.data) {
+          if (!map[row.item_name]) {
+            map[row.item_name] = row.purchased_at
+          }
+        }
+        setLastPurchased(map)
+      }
+
+      setLoading(false)
+    }
+
+    initialFetch()
 
     const channel = supabase
       .channel('shopping_list_changes')
@@ -57,6 +93,7 @@ export function useShoppingList() {
       .subscribe()
 
     return () => {
+      ignore = true
       supabase.removeChannel(channel)
     }
   }, [fetchItems])
@@ -104,11 +141,40 @@ export function useShoppingList() {
     }
   }, [])
 
+  const addItems = useCallback(async (
+    itemsToAdd: { itemName: string; categoryEmoji: string; addedBy?: string }[]
+  ) => {
+    if (itemsToAdd.length === 0) return
+    const rows = itemsToAdd.map(i => ({
+      item_name: i.itemName,
+      category_emoji: i.categoryEmoji,
+      added_by: i.addedBy ?? 'manager',
+    }))
+    const { error } = await supabase
+      .from('shopping_list')
+      .upsert(rows, { onConflict: 'item_name', ignoreDuplicates: true })
+
+    if (error) {
+      console.error('Error adding items:', error)
+    }
+  }, [])
+
   const removeItem = useCallback(async (id: string) => {
     await supabase
       .from('shopping_list')
       .delete()
       .eq('id', id)
+  }, [])
+
+  const removeAllItems = useCallback(async () => {
+    const { error } = await supabase
+      .from('shopping_list')
+      .delete()
+      .eq('is_checked', false)
+
+    if (error) {
+      console.error('Error removing all items:', error)
+    }
   }, [])
 
   const finishShopping = useCallback(async () => {
@@ -151,7 +217,9 @@ export function useShoppingList() {
     loading,
     checkItem,
     addItem,
+    addItems,
     removeItem,
+    removeAllItems,
     finishShopping,
     refetch: fetchItems,
   }
