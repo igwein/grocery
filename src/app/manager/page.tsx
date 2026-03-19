@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useShoppingList } from '@/hooks/useShoppingList'
 import { ShoppingList } from '@/components/ShoppingList'
 import { AddItemInput } from '@/components/AddItemInput'
 import { AISuggestion, ShoppingListItem } from '@/lib/types'
+import { getCategoryOrder, getCategoryName } from '@/lib/categories'
 
 export default function ManagerPage() {
   const {
@@ -48,12 +49,24 @@ export default function ManagerPage() {
   }
 
   const handleAcceptAll = async () => {
-    for (const s of suggestions) {
+    const currentNames = new Set(items.map(i => i.item_name))
+    const newSuggestions = suggestions.filter(s => !currentNames.has(s.item_name))
+    for (const s of newSuggestions) {
       await addItem(s.item_name, s.category_emoji, 'ai')
     }
     setSuggestions([])
     setShowSuggestions(false)
   }
+
+  const groupedSuggestions = useMemo(() => {
+    const groups = new Map<string, AISuggestion[]>()
+    for (const s of suggestions) {
+      const existing = groups.get(s.category_emoji) ?? []
+      groups.set(s.category_emoji, [...existing, s])
+    }
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => getCategoryOrder(a) - getCategoryOrder(b))
+  }, [suggestions])
 
   const handleRemoveItem = useCallback(async (id: string) => {
     const item = activeItems.find(i => i.id === id)
@@ -133,36 +146,43 @@ export default function ManagerPage() {
             </div>
           </div>
 
-          {suggestions.map((s, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2 py-2 border-b border-blue-100 last:border-0"
-            >
-              <span className="text-xl">{s.category_emoji}</span>
-              <span className="flex-1">{s.item_name}</span>
-              <span className={`text-xs px-2 py-0.5 rounded ${
-                s.confidence === 'high' ? 'bg-green-100 text-green-700' :
-                s.confidence === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                'bg-gray-100 text-gray-600'
-              }`}>
-                {s.confidence === 'high' ? 'בטוח' : s.confidence === 'medium' ? 'אולי' : 'אפשרי'}
-              </span>
-              <button
-                onClick={() => handleAcceptSuggestion(s)}
-                className="text-green-600 p-1"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setSuggestions(prev => prev.filter((_, idx) => idx !== i))}
-                className="text-red-400 p-1"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+          {groupedSuggestions.map(([emoji, items]) => (
+            <div key={emoji}>
+              <div className="flex items-center gap-2 pt-3 pb-1 px-1">
+                <span className="text-lg">{emoji}</span>
+                <span className="text-sm font-semibold text-blue-700">{getCategoryName(emoji)}</span>
+              </div>
+              {items.map((s) => (
+                <div
+                  key={s.item_name}
+                  className="flex items-center gap-2 py-2 pr-7 border-b border-blue-100 last:border-0"
+                >
+                  <span className="flex-1">{s.item_name}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded ${
+                    s.confidence === 'high' ? 'bg-green-100 text-green-700' :
+                    s.confidence === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-gray-100 text-gray-600'
+                  }`}>
+                    {s.confidence === 'high' ? 'בטוח' : s.confidence === 'medium' ? 'אולי' : 'אפשרי'}
+                  </span>
+                  <button
+                    onClick={() => handleAcceptSuggestion(s)}
+                    className="text-green-600 p-1"
+                  >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setSuggestions(prev => prev.filter(x => x.item_name !== s.item_name))}
+                    className="text-red-400 p-1"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -274,7 +294,10 @@ export default function ManagerPage() {
         <AddItemInput
           onAdd={(name, emoji) => addItem(name, emoji, 'manager')}
           onClose={() => setShowAddItem(false)}
-          currentItemNames={items.map(i => i.item_name)}
+          currentItemNames={[
+            ...items.map(i => i.item_name),
+            ...suggestions.map(s => s.item_name),
+          ]}
         />
       )}
     </div>

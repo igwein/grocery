@@ -90,11 +90,14 @@ export function useShoppingList() {
   ) => {
     const { error } = await supabase
       .from('shopping_list')
-      .insert({
-        item_name: itemName,
-        category_emoji: categoryEmoji,
-        added_by: addedBy,
-      })
+      .upsert(
+        {
+          item_name: itemName,
+          category_emoji: categoryEmoji,
+          added_by: addedBy,
+        },
+        { onConflict: 'item_name', ignoreDuplicates: true }
+      )
 
     if (error) {
       console.error('Error adding item:', error)

@@ -5,8 +5,26 @@ import { supabase } from '@/lib/supabase/client'
 import { CatalogItem } from '@/lib/types'
 import { CATEGORIES, getCategoryName } from '@/lib/categories'
 
-interface CatalogItemWithFreq extends CatalogItem {
-  frequency: number
+function levenshtein(a: string, b: string): number {
+  const m = a.length
+  const n = b.length
+  const dp: number[] = Array.from({ length: n + 1 }, (_, i) => i)
+  for (let i = 1; i <= m; i++) {
+    let prev = i - 1
+    dp[0] = i
+    for (let j = 1; j <= n; j++) {
+      const temp = dp[j]
+      dp[j] = a[i - 1] === b[j - 1]
+        ? prev
+        : 1 + Math.min(prev, dp[j], dp[j - 1])
+      prev = temp
+    }
+  }
+  return dp[n]
+}
+
+interface CatalogItemWithHistory extends CatalogItem {
+  lastPurchased: string | null
 }
 
 interface AddItemInputProps {
@@ -17,7 +35,7 @@ interface AddItemInputProps {
 
 export function AddItemInput({ onAdd, onClose, currentItemNames = [] }: AddItemInputProps) {
   const [query, setQuery] = useState('')
-  const [allItems, setAllItems] = useState<CatalogItemWithFreq[]>([])
+  const [allItems, setAllItems] = useState<CatalogItemWithHistory[]>([])
   const [loadingItems, setLoadingItems] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [showCategoryPicker, setShowCategoryPicker] = useState(false)
@@ -27,29 +45,39 @@ export function AddItemInput({ onAdd, onClose, currentItemNames = [] }: AddItemI
     inputRef.current?.focus()
   }, [])
 
-  // Fetch all catalog items with purchase frequency
+  // Fetch all catalog items with last purchase date
   useEffect(() => {
     async function fetchAll() {
       const [catalogResult, historyResult] = await Promise.all([
         supabase.from('items_catalog').select('*'),
-        supabase.from('purchase_history').select('item_name'),
+        supabase
+          .from('purchase_history')
+          .select('item_name, purchased_at')
+          .order('purchased_at', { ascending: false }),
       ])
 
-      // Count frequency per item
-      const freqMap = new Map<string, number>()
+      // Get last purchase date per item (first occurrence due to desc order)
+      const lastPurchasedMap = new Map<string, string>()
       if (historyResult.data) {
         for (const row of historyResult.data) {
-          freqMap.set(row.item_name, (freqMap.get(row.item_name) ?? 0) + 1)
+          if (!lastPurchasedMap.has(row.item_name)) {
+            lastPurchasedMap.set(row.item_name, row.purchased_at)
+          }
         }
       }
 
-      const items: CatalogItemWithFreq[] = (catalogResult.data ?? []).map(item => ({
+      const items: CatalogItemWithHistory[] = (catalogResult.data ?? []).map(item => ({
         ...item,
-        frequency: freqMap.get(item.name) ?? 0,
+        lastPurchased: lastPurchasedMap.get(item.name) ?? null,
       }))
 
-      // Sort by frequency descending
-      items.sort((a, b) => b.frequency - a.frequency)
+      // Sort by last purchase date descending (most recent first), items never purchased last
+      items.sort((a, b) => {
+        if (!a.lastPurchased && !b.lastPurchased) return 0
+        if (!a.lastPurchased) return 1
+        if (!b.lastPurchased) return -1
+        return b.lastPurchased.localeCompare(a.lastPurchased)
+      })
       setAllItems(items)
       setLoadingItems(false)
     }
@@ -58,14 +86,40 @@ export function AddItemInput({ onAdd, onClose, currentItemNames = [] }: AddItemI
 
   const currentSet = useMemo(() => new Set(currentItemNames), [currentItemNames])
 
-  // Filter: not on current list, matches search query
+  // Fuzzy match: finds items with similar spelling (typos, vowel differences)
+  const fuzzyMatch = useCallback((target: string, search: string): number => {
+    const s = search.trim()
+    if (!s) return 1
+
+    // Exact substring match gets highest score
+    if (target.includes(s)) return 3
+
+    // Check each word in the target for similarity
+    const words = target.split(/\s+/)
+    for (const word of words) {
+      // Levenshtein distance for short-range typo tolerance
+      const dist = levenshtein(word, s)
+      // Allow distance proportional to query length (roughly 1 per 3 chars, min 1)
+      const maxDist = Math.max(1, Math.floor(s.length / 3))
+      if (dist <= maxDist) return 2
+    }
+
+    return 0
+  }, [])
+
+  // Filter: not on current list, matches search query (fuzzy)
   const filteredItems = useMemo(() => {
     const available = allItems.filter(item => !currentSet.has(item.name))
-    if (!query.trim()) return available
-    return available.filter(item => item.name.includes(query.trim()))
-  }, [allItems, currentSet, query])
+    const q = query.trim()
+    if (!q) return available
+    return available
+      .map(item => ({ item, score: fuzzyMatch(item.name, q) }))
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(({ item }) => item)
+  }, [allItems, currentSet, query, fuzzyMatch])
 
-  const handleSelect = (item: CatalogItemWithFreq) => {
+  const handleSelect = (item: CatalogItemWithHistory) => {
     onAdd(item.name, item.category_emoji)
     // Don't close - let manager add multiple items
   }
@@ -122,7 +176,7 @@ export function AddItemInput({ onAdd, onClose, currentItemNames = [] }: AddItemI
 
         {!query.trim() && (
           <p className="text-sm text-gray-400 px-4 pb-2">
-            מוצרים שלא ברשימה (לפי תדירות קנייה)
+            מוצרים שלא ברשימה (לפי תאריך קנייה אחרון)
           </p>
         )}
 
@@ -139,8 +193,10 @@ export function AddItemInput({ onAdd, onClose, currentItemNames = [] }: AddItemI
                 >
                   <span className="text-xl">{item.category_emoji}</span>
                   <span className="text-lg flex-1">{item.name}</span>
-                  {item.frequency > 0 && (
-                    <span className="text-xs text-gray-400">{item.frequency}x</span>
+                  {item.lastPurchased && (
+                    <span className="text-xs text-gray-400">
+                      {new Date(item.lastPurchased).toLocaleDateString('he-IL')}
+                    </span>
                   )}
                   <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
