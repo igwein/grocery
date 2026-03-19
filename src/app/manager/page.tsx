@@ -16,7 +16,9 @@ export default function ManagerPage() {
     lastPurchased,
     loading,
     addItem,
+    addItems,
     removeItem,
+    removeAllItems,
   } = useShoppingList()
 
   const [showAddItem, setShowAddItem] = useState(false)
@@ -51,9 +53,11 @@ export default function ManagerPage() {
   const handleAcceptAll = async () => {
     const currentNames = new Set(items.map(i => i.item_name))
     const newSuggestions = suggestions.filter(s => !currentNames.has(s.item_name))
-    for (const s of newSuggestions) {
-      await addItem(s.item_name, s.category_emoji, 'ai')
-    }
+    await addItems(newSuggestions.map(s => ({
+      itemName: s.item_name,
+      categoryEmoji: s.category_emoji,
+      addedBy: 'ai',
+    })))
     setSuggestions([])
     setShowSuggestions(false)
   }
@@ -189,10 +193,22 @@ export default function ManagerPage() {
       )}
 
       {/* Current List */}
-      <div className="px-4 mb-2">
+      <div className="px-4 mb-2 flex items-center justify-between">
         <h2 className="text-sm font-medium text-gray-500">
           רשימה נוכחית ({activeItems.length} פריטים)
         </h2>
+        {activeItems.length > 0 && (
+          <button
+            onClick={() => {
+              if (confirm(`לרוקן את הרשימה? (${activeItems.length} פריטים ימחקו)`)) {
+                removeAllItems()
+              }
+            }}
+            className="text-xs text-red-400 hover:text-red-600"
+          >
+            מחק הכל
+          </button>
+        )}
       </div>
 
       <ShoppingList
