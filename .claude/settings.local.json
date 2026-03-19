@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:app.heysally.co.il)",
+      "WebSearch",
+      "Bash(unzip -l /Users/igorweinstein/work/grocery/claude-skills.zip)",
+      "Bash(unzip -o claude-skills.zip -d .)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --yes)",
+      "Read(//private/tmp/**)",
+      "Bash(npx create-next-app@latest grocery-temp --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --yes)",
+      "Bash(rm -rf /tmp/grocery-temp)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "mcp__Claude_Preview__preview_start"
+    ]
+  }
+}

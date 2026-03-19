@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-assistant);
+  --color-green-primary: #16a34a;
+  --color-green-light: #dcfce7;
+}
+
+body {
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth check-off animation */
+.item-checked {
+  opacity: 0.5;
+  text-decoration: line-through;
+  transition: opacity 0.3s ease;
+}
