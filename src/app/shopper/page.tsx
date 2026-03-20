@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { useShoppingList } from '@/hooks/useShoppingList'
 import { ShoppingList } from '@/components/ShoppingList'
 import { AddItemInput } from '@/components/AddItemInput'
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton'
+import { ReceiptItem } from '@/lib/types'
 
 export default function ShopperPage() {
   const {
@@ -16,12 +17,95 @@ export default function ShopperPage() {
     updateQuantity,
     addItem,
     removeItem,
+    addToHistory,
     finishShopping,
   } = useShoppingList()
 
   const allItemNames = useMemo(() => [...activeItems, ...doneItems].map(i => i.item_name), [activeItems, doneItems])
   const [showAddItem, setShowAddItem] = useState(false)
   const [showFinishConfirm, setShowFinishConfirm] = useState(false)
+
+  // Receipt scanning state
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [receiptItems, setReceiptItems] = useState<ReceiptItem[]>([])
+  const [showReceiptReview, setShowReceiptReview] = useState(false)
+  const [receiptDate, setReceiptDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [receiptParsing, setReceiptParsing] = useState(false)
+  const [receiptError, setReceiptError] = useState<string | null>(null)
+  const [receiptSaved, setReceiptSaved] = useState(false)
+
+  const handleReceiptUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    setReceiptParsing(true)
+    setReceiptError(null)
+    setReceiptSaved(false)
+
+    try {
+      const formData = new FormData()
+      for (const file of Array.from(files)) {
+        formData.append('images', file)
+      }
+
+      const res = await fetch('/api/parse-receipt', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+
+      if (data.success && data.data) {
+        setReceiptItems(data.data)
+        setReceiptDate(new Date().toISOString().split('T')[0])
+        setShowReceiptReview(true)
+      } else {
+        setReceiptError(data.error || 'שגיאה בניתוח הקבלה')
+      }
+    } catch {
+      setReceiptError('שגיאה בניתוח הקבלה')
+    } finally {
+      setReceiptParsing(false)
+      // Reset file input so same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }, [])
+
+  const handleRemoveReceiptItem = useCallback((index: number) => {
+    setReceiptItems(prev => prev.filter((_, i) => i !== index))
+  }, [])
+
+  const handleAcceptReceiptItem = useCallback(async (index: number) => {
+    const item = receiptItems[index]
+    if (!item) return
+
+    await addToHistory([{
+      item_name: item.item_name,
+      category_emoji: item.category_emoji,
+      purchased_at: receiptDate,
+      source: 'receipt',
+    }])
+
+    setReceiptItems(prev => prev.filter((_, i) => i !== index))
+  }, [receiptItems, receiptDate, addToHistory])
+
+  const handleSaveReceipt = useCallback(async () => {
+    if (receiptItems.length === 0) return
+
+    const entries = receiptItems.map(item => ({
+      item_name: item.item_name,
+      category_emoji: item.category_emoji,
+      purchased_at: receiptDate,
+      source: 'receipt',
+    }))
+
+    await addToHistory(entries)
+    setReceiptSaved(true)
+    setTimeout(() => {
+      setShowReceiptReview(false)
+      setReceiptItems([])
+      setReceiptSaved(false)
+    }, 1500)
+  }, [receiptItems, receiptDate, addToHistory])
 
   if (loading) {
     return (
@@ -49,6 +133,44 @@ export default function ShopperPage() {
           </div>
         </div>
       </header>
+
+      {/* Receipt Scan Button */}
+      <div className="px-4 pt-3">
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={receiptParsing}
+          className="w-full bg-white rounded-2xl py-3 px-4 card-shadow flex items-center justify-center gap-2 text-green-700 font-semibold disabled:opacity-60"
+        >
+          {receiptParsing ? (
+            <>
+              <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <span>מנתח קבלה...</span>
+            </>
+          ) : (
+            <>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span>סרוק קבלה</span>
+            </>
+          )}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleReceiptUpload}
+          className="hidden"
+        />
+        {receiptError && (
+          <p className="text-red-500 text-sm text-center mt-2">{receiptError}</p>
+        )}
+      </div>
 
       {/* Active Items */}
       <div className="pt-2">
@@ -145,6 +267,116 @@ export default function ShopperPage() {
                 אישור
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt Review Modal */}
+      {showReceiptReview && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
+          <div className="bg-white rounded-t-2xl w-full max-h-[85vh] flex flex-col card-shadow">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-800">פריטים מהקבלה</h2>
+              <button
+                onClick={() => {
+                  setShowReceiptReview(false)
+                  setReceiptItems([])
+                }}
+                className="text-gray-400 p-1"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Date Picker */}
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
+              <label className="text-sm font-medium text-gray-600">תאריך קנייה:</label>
+              <input
+                type="date"
+                value={receiptDate}
+                onChange={(e) => setReceiptDate(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-green-500"
+                dir="ltr"
+              />
+            </div>
+
+            {/* Items List */}
+            <div className="flex-1 overflow-y-auto px-4 py-2">
+              {receiptSaved ? (
+                <div className="flex flex-col items-center justify-center py-12 text-green-600">
+                  <svg className="w-16 h-16 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p className="text-lg font-bold">נשמר להיסטוריה!</p>
+                </div>
+              ) : receiptItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-green-600">
+                  <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p className="font-bold">כל הפריטים נשמרו</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <p className="text-sm text-gray-400 mb-2">{receiptItems.length} פריטים זוהו</p>
+                  {receiptItems.map((item, index) => (
+                    <div
+                      key={`${item.item_name}-${index}`}
+                      className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0"
+                    >
+                      <span className="text-xl">{item.category_emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-800 truncate">{item.item_name}</p>
+                        {item.receipt_name !== item.item_name && (
+                          <p className="text-xs text-gray-400 truncate">{item.receipt_name}</p>
+                        )}
+                        <div className="flex gap-3 mt-0.5">
+                          {item.quantity && (
+                            <span className="text-xs text-green-600">{item.quantity}</span>
+                          )}
+                          {item.price && (
+                            <span className="text-xs text-gray-500">₪{item.price}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleAcceptReceiptItem(index)}
+                        className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center flex-shrink-0"
+                        aria-label="שמור פריט"
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleRemoveReceiptItem(index)}
+                        className="w-8 h-8 rounded-full bg-red-50 text-red-400 flex items-center justify-center flex-shrink-0"
+                        aria-label="הסר פריט"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Save Button */}
+            {!receiptSaved && receiptItems.length > 0 && (
+              <div className="px-4 py-3 border-t border-gray-100">
+                <button
+                  onClick={handleSaveReceipt}
+                  className="w-full bg-green-600 text-white rounded-xl py-3 font-bold text-lg"
+                >
+                  שמור הכל להיסטוריה ({receiptItems.length} פריטים)
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

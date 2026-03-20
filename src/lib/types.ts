@@ -32,6 +32,14 @@ export interface AISuggestion {
   confidence: 'high' | 'medium' | 'low'
 }
 
+export interface ReceiptItem {
+  receipt_name: string
+  item_name: string
+  category_emoji: string
+  quantity: string | null
+  price: string | null
+}
+
 export interface ApiResponse<T> {
   success: boolean
   data?: T

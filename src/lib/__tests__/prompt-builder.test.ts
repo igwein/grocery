@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildGenerateListPrompt, sanitizeLLMJson, parseLLMJson } from '@/lib/prompt-builder'
+import { buildGenerateListPrompt, buildReceiptParsePrompt, sanitizeLLMJson, parseLLMJson } from '@/lib/prompt-builder'
 
 describe('buildGenerateListPrompt', () => {
   it('includes frequency data and current items in prompt', () => {
@@ -24,6 +24,47 @@ describe('buildGenerateListPrompt', () => {
   it('shows "empty" when current list is empty', () => {
     const prompt = buildGenerateListPrompt([], [], '2025-01-20')
     expect(prompt).toContain('empty')
+  })
+})
+
+describe('buildReceiptParsePrompt', () => {
+  const catalogItems = ['חלב', 'לחם', 'ביצים', 'עגבניות']
+  const categories = [
+    { emoji: '🧀', name: 'מוצרי חלב' },
+    { emoji: '🥬', name: 'ירקות' },
+    { emoji: '🥚', name: 'ביצים' },
+  ]
+
+  it('includes category list with emoji and name', () => {
+    const prompt = buildReceiptParsePrompt(catalogItems, categories)
+    expect(prompt).toContain('🧀 מוצרי חלב')
+    expect(prompt).toContain('🥬 ירקות')
+    expect(prompt).toContain('🥚 ביצים')
+  })
+
+  it('includes catalog item names for matching', () => {
+    const prompt = buildReceiptParsePrompt(catalogItems, categories)
+    expect(prompt).toContain('חלב')
+    expect(prompt).toContain('לחם')
+    expect(prompt).toContain('ביצים')
+    expect(prompt).toContain('עגבניות')
+  })
+
+  it('instructs to return JSON array with required fields', () => {
+    const prompt = buildReceiptParsePrompt(catalogItems, categories)
+    expect(prompt).toContain('receipt_name')
+    expect(prompt).toContain('item_name')
+    expect(prompt).toContain('category_emoji')
+    expect(prompt).toContain('quantity')
+    expect(prompt).toContain('price')
+    expect(prompt).toContain('JSON')
+  })
+
+  it('works with empty catalog', () => {
+    const prompt = buildReceiptParsePrompt([], categories)
+    expect(prompt).toContain('🧀 מוצרי חלב')
+    // Should still be a valid prompt
+    expect(prompt.length).toBeGreaterThan(100)
   })
 })
 

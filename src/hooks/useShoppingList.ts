@@ -221,6 +221,31 @@ export function useShoppingList() {
       .in('id', checkedIds)
   }, [items])
 
+  const addToHistory = useCallback(async (
+    entries: { item_name: string; category_emoji: string; purchased_at: string; source: string }[]
+  ) => {
+    if (entries.length === 0) return
+
+    // Insert into purchase history
+    const { error: historyError } = await supabase
+      .from('purchase_history')
+      .insert(entries)
+
+    if (historyError) {
+      console.error('Error saving to history:', historyError)
+      return
+    }
+
+    // Upsert into items_catalog so new items appear in autocomplete
+    const catalogRows = entries.map(e => ({
+      name: e.item_name,
+      category_emoji: e.category_emoji,
+    }))
+    await supabase
+      .from('items_catalog')
+      .upsert(catalogRows, { onConflict: 'name', ignoreDuplicates: true })
+  }, [])
+
   const activeItems = items.filter(i => !i.is_checked)
   const doneItems = items.filter(i => i.is_checked)
 
@@ -236,6 +261,7 @@ export function useShoppingList() {
     updateQuantity,
     removeItem,
     removeAllItems,
+    addToHistory,
     finishShopping,
     refetch: fetchItems,
   }
