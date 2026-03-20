@@ -41,6 +41,7 @@ Defined in `.env.local` (not committed):
 - **Database**: Supabase (PostgreSQL) with Realtime subscriptions
 - **AI**: Google Gemini API (`gemini-3-flash-preview`) for weekly list suggestions
 - **Font**: Assistant (Google Fonts, supports Hebrew)
+- **Testing**: Vitest + React Testing Library + jsdom
 - **PWA**: Web app manifest for mobile install
 
 ## Architecture
@@ -94,12 +95,19 @@ src/
 │   └── AddItemInput.tsx           # Search/add modal with catalog autocomplete
 ├── hooks/
 │   └── useShoppingList.ts         # Core hook: CRUD + realtime + finish shopping
-└── lib/
-    ├── types.ts                   # Shared TypeScript interfaces
-    ├── categories.ts              # Category definitions (24 categories, emoji-keyed)
-    └── supabase/
-        ├── client.ts              # Browser Supabase client (anon key)
-        └── server.ts              # Server Supabase client (service role key)
+├── lib/
+│   ├── types.ts                   # Shared TypeScript interfaces
+│   ├── categories.ts              # Category definitions (24 categories, emoji-keyed)
+│   ├── fuzzy-match.ts             # Levenshtein distance + fuzzy search scoring
+│   ├── frequency.ts               # Purchase frequency calculation for AI prompt
+│   ├── prompt-builder.ts          # Gemini prompt construction + LLM JSON parsing
+│   └── supabase/
+│       ├── client.ts              # Browser Supabase client (anon key)
+│       └── server.ts              # Server Supabase client (service role key)
+└── test/
+    ├── setup.ts                   # Vitest setup (jest-dom matchers, env vars)
+    └── mocks/
+        └── supabase.ts            # Chainable Supabase client mock
 scripts/
 └── import-csv.ts                  # One-time CSV → Supabase seeder
 supabase/
@@ -115,6 +123,8 @@ npm run dev       # Start dev server
 npm run build     # Production build
 npm run start     # Start production server
 npm run lint      # ESLint
+npm run test      # Vitest in watch mode
+npm run test:run  # Vitest single run (CI)
 ```
 
 ## Data Flow
@@ -130,5 +140,7 @@ npm run lint      # ESLint
 - Categories are emoji-keyed and ordered by supermarket aisle flow (defined in `src/lib/categories.ts`)
 - The `items_catalog` table provides autocomplete when adding items; sorted by purchase frequency
 - Path alias: `@/*` maps to `./src/*`
-- No test framework is configured yet
+- Tests use Vitest with jsdom environment; config in `vitest.config.ts`
+- Supabase mock in `src/test/mocks/supabase.ts` provides a chainable builder for `from().select().order()` etc.
+- Pure business logic is extracted into `src/lib/` modules (fuzzy-match, frequency, prompt-builder) for testability
 - No deployment pipeline is configured yet — runs locally with `supabase start`

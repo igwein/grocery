@@ -1,27 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { CatalogItem } from '@/lib/types'
 import { CATEGORIES, getCategoryName } from '@/lib/categories'
-
-function levenshtein(a: string, b: string): number {
-  const m = a.length
-  const n = b.length
-  const dp: number[] = Array.from({ length: n + 1 }, (_, i) => i)
-  for (let i = 1; i <= m; i++) {
-    let prev = i - 1
-    dp[0] = i
-    for (let j = 1; j <= n; j++) {
-      const temp = dp[j]
-      dp[j] = a[i - 1] === b[j - 1]
-        ? prev
-        : 1 + Math.min(prev, dp[j], dp[j - 1])
-      prev = temp
-    }
-  }
-  return dp[n]
-}
+import { fuzzyMatch } from '@/lib/fuzzy-match'
 
 interface CatalogItemWithHistory extends CatalogItem {
   lastPurchased: string | null
@@ -86,27 +69,6 @@ export function AddItemInput({ onAdd, onClose, currentItemNames = [] }: AddItemI
 
   const currentSet = useMemo(() => new Set(currentItemNames), [currentItemNames])
 
-  // Fuzzy match: finds items with similar spelling (typos, vowel differences)
-  const fuzzyMatch = useCallback((target: string, search: string): number => {
-    const s = search.trim()
-    if (!s) return 1
-
-    // Exact substring match gets highest score
-    if (target.includes(s)) return 3
-
-    // Check each word in the target for similarity
-    const words = target.split(/\s+/)
-    for (const word of words) {
-      // Levenshtein distance for short-range typo tolerance
-      const dist = levenshtein(word, s)
-      // Allow distance proportional to query length (roughly 1 per 3 chars, min 1)
-      const maxDist = Math.max(1, Math.floor(s.length / 3))
-      if (dist <= maxDist) return 2
-    }
-
-    return 0
-  }, [])
-
   // Filter: not on current list, matches search query (fuzzy)
   const filteredItems = useMemo(() => {
     const available = allItems.filter(item => !currentSet.has(item.name))
@@ -117,7 +79,7 @@ export function AddItemInput({ onAdd, onClose, currentItemNames = [] }: AddItemI
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score)
       .map(({ item }) => item)
-  }, [allItems, currentSet, query, fuzzyMatch])
+  }, [allItems, currentSet, query])
 
   const handleSelect = (item: CatalogItemWithHistory) => {
     onAdd(item.name, item.category_emoji)
