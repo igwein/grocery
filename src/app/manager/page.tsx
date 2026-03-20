@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import Link from 'next/link'
 import { useShoppingList } from '@/hooks/useShoppingList'
 import { ShoppingList } from '@/components/ShoppingList'
 import { AddItemInput } from '@/components/AddItemInput'
+import { FloatingActionButton } from '@/components/ui/FloatingActionButton'
 import { AISuggestion, ShoppingListItem } from '@/lib/types'
 import { getCategoryOrder, getCategoryName } from '@/lib/categories'
 
@@ -95,95 +95,107 @@ export default function ManagerPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen">
       {/* Header */}
       <header className="bg-green-600 text-white px-4 py-4 sticky top-0 z-20">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">ניהול רשימה</h1>
-          <Link
-            href="/manager/history"
-            className="text-green-100 hover:text-white text-sm"
-          >
-            היסטוריה
-          </Link>
+          <button className="p-1">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
         </div>
       </header>
 
-      {/* AI Generate Button */}
+      {/* AI Generate Button — green gradient banner */}
       <div className="p-4">
         <button
           onClick={handleGenerate}
           disabled={generating}
-          className="w-full bg-blue-500 text-white rounded-xl py-3 text-lg font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full green-gradient text-white rounded-2xl py-4 px-5 text-lg font-semibold disabled:opacity-70 flex items-center justify-between"
         >
           {generating ? (
-            <>
+            <div className="flex items-center gap-2 mx-auto">
               <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              מייצר רשימה...
-            </>
+              <span>מייצר רשימה...</span>
+            </div>
           ) : (
-            'צור רשימה שבועית עם AI'
+            <>
+              <svg className="w-5 h-5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              <span>צור רשימה שבועית עם AI</span>
+              {/* Sparkle icon */}
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+                </svg>
+              </div>
+            </>
           )}
         </button>
       </div>
 
       {/* AI Suggestions */}
       {showSuggestions && suggestions.length > 0 && (
-        <div className="mx-4 mb-4 bg-blue-50 rounded-xl p-4 border border-blue-200">
+        <div className="mx-4 mb-4 bg-white rounded-2xl p-4 card-shadow">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-blue-800">הצעות AI</h2>
-            <div className="flex gap-2">
+            <h2 className="font-bold text-gray-800">הצעות AI</h2>
+            <div className="flex gap-3">
               <button
                 onClick={handleAcceptAll}
-                className="text-sm bg-blue-500 text-white px-3 py-1 rounded-lg"
+                className="text-sm font-bold text-green-700"
               >
                 הוסף הכל
               </button>
               <button
                 onClick={() => setShowSuggestions(false)}
-                className="text-sm text-blue-500 px-3 py-1"
+                className="text-sm text-gray-500"
               >
                 סגור
               </button>
             </div>
           </div>
 
-          {groupedSuggestions.map(([emoji, items]) => (
+          {groupedSuggestions.map(([emoji, groupItems]) => (
             <div key={emoji}>
-              <div className="flex items-center gap-2 pt-3 pb-1 px-1">
-                <span className="text-lg">{emoji}</span>
-                <span className="text-sm font-semibold text-blue-700">{getCategoryName(emoji)}</span>
+              <div className="flex items-center gap-2 pt-3 pb-2 px-1">
+                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                  <span className="text-lg">{emoji}</span>
+                </div>
+                <span className="text-sm font-bold text-gray-700">{getCategoryName(emoji)}</span>
               </div>
-              {items.map((s) => (
+              {groupItems.map((s) => (
                 <div
                   key={s.item_name}
-                  className="flex items-center gap-2 py-2 pr-7 border-b border-blue-100 last:border-0"
+                  className="flex items-center gap-2 py-2.5 pr-10 border-b border-gray-100 last:border-0"
                 >
-                  <span className="flex-1">{s.item_name}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded ${
+                  <span className="flex-1 font-medium">{s.item_name}</span>
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
                     s.confidence === 'high' ? 'bg-green-100 text-green-700' :
                     s.confidence === 'medium' ? 'bg-yellow-100 text-yellow-700' :
                     'bg-gray-100 text-gray-600'
                   }`}>
-                    {s.confidence === 'high' ? 'בטוח' : s.confidence === 'medium' ? 'אולי' : 'אפשרי'}
+                    {s.confidence === 'high' ? 'בטוח' : s.confidence === 'medium' ? 'אולי' : 'לא בטוח'}
                   </span>
                   <button
                     onClick={() => handleAcceptSuggestion(s)}
-                    className="text-green-600 p-1"
+                    className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center"
                   >
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                     </svg>
                   </button>
                   <button
                     onClick={() => setSuggestions(prev => prev.filter(x => x.item_name !== s.item_name))}
-                    className="text-red-400 p-1"
+                    className="w-8 h-8 rounded-full bg-red-50 text-red-400 flex items-center justify-center"
                   >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
@@ -193,11 +205,9 @@ export default function ManagerPage() {
         </div>
       )}
 
-      {/* Current List */}
+      {/* List heading */}
       <div className="px-4 mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-medium text-gray-500">
-          רשימה נוכחית ({activeItems.length} פריטים)
-        </h2>
+        <h2 className="text-xl font-bold text-gray-800">הרשימה שלי</h2>
         {activeItems.length > 0 && (
           <button
             onClick={() => {
@@ -205,7 +215,7 @@ export default function ManagerPage() {
                 removeAllItems()
               }
             }}
-            className="text-xs text-red-400 hover:text-red-600"
+            className="text-sm text-red-500 font-medium"
           >
             מחק הכל
           </button>
@@ -220,14 +230,15 @@ export default function ManagerPage() {
         showRemove
         showCheckbox={false}
         lastPurchased={lastPurchased}
+        variant="manager"
       />
 
-      {/* Bought items section - checked by shopper */}
+      {/* Bought items section */}
       {doneItems.length > 0 && (
-        <div className="mt-4">
+        <div className="mt-4 mx-4">
           <button
             onClick={() => setShowBought(!showBought)}
-            className="w-full flex items-center gap-2 px-4 py-3 bg-green-50 text-green-700"
+            className="w-full flex items-center gap-2 px-4 py-3 bg-green-100/50 rounded-xl text-green-700"
           >
             <svg
               className={`w-4 h-4 transition-transform ${showBought ? 'rotate-180' : ''}`}
@@ -241,11 +252,11 @@ export default function ManagerPage() {
           </button>
 
           {showBought && (
-            <div className="bg-green-50/50">
+            <div className="mt-2 space-y-2">
               {doneItems.map(item => (
                 <div
                   key={item.id}
-                  className="flex items-center gap-3 px-4 py-3 border-b border-green-100 opacity-60"
+                  className="flex items-center gap-3 px-4 py-3 bg-white/60 rounded-xl opacity-60"
                 >
                   <svg className="w-5 h-5 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -258,12 +269,12 @@ export default function ManagerPage() {
         </div>
       )}
 
-      {/* Removed items section - quick restore */}
+      {/* Removed items section */}
       {removedItems.length > 0 && (
-        <div className="mt-4">
+        <div className="mt-4 mx-4">
           <button
             onClick={() => setShowRemoved(!showRemoved)}
-            className="w-full flex items-center gap-2 px-4 py-3 bg-gray-100 text-gray-500"
+            className="w-full flex items-center gap-2 px-4 py-3 bg-gray-100 rounded-xl text-gray-500"
           >
             <svg
               className={`w-4 h-4 transition-transform ${showRemoved ? 'rotate-180' : ''}`}
@@ -277,16 +288,16 @@ export default function ManagerPage() {
           </button>
 
           {showRemoved && (
-            <div className="bg-gray-50">
+            <div className="mt-2 space-y-2">
               {removedItems.map(item => (
                 <div
                   key={item.id}
-                  className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 opacity-60"
+                  className="flex items-center gap-3 px-4 py-3 bg-white/60 rounded-xl opacity-60"
                 >
                   <span className="text-lg flex-1 line-through">{item.item_name}</span>
                   <button
                     onClick={() => handleRestoreItem(item)}
-                    className="text-green-600 text-sm bg-green-50 px-3 py-1 rounded-lg"
+                    className="text-green-600 text-sm bg-green-50 px-3 py-1 rounded-lg font-medium"
                   >
                     החזר לרשימה
                   </button>
@@ -297,15 +308,8 @@ export default function ManagerPage() {
         </div>
       )}
 
-      {/* Bottom Add Button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
-        <button
-          onClick={() => setShowAddItem(true)}
-          className="w-full bg-green-600 text-white rounded-xl py-3 text-lg font-semibold"
-        >
-          + הוסף מוצר
-        </button>
-      </div>
+      {/* Floating Add Button */}
+      <FloatingActionButton onClick={() => setShowAddItem(true)} />
 
       {/* Add Item Modal */}
       {showAddItem && (

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { PurchaseRecord } from '@/lib/types'
 import { getCategoryName, getCategoryOrder } from '@/lib/categories'
@@ -11,6 +10,40 @@ interface ItemFrequency {
   category_emoji: string
   count: number
   last_purchased: string
+}
+
+function TimelineDateGroup({ date, items }: { date: string; items: PurchaseRecord[] }) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <div className="bg-white rounded-2xl overflow-hidden card-shadow">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 border-b border-gray-100"
+      >
+        <div>
+          <span className="font-bold text-gray-700">{date}</span>
+          <span className="text-sm text-gray-400 mr-2">({items.length} פריטים)</span>
+        </div>
+        <svg
+          className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {isOpen && items.map((item, i) => (
+        <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0">
+          <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+            <span className="text-lg">{item.category_emoji}</span>
+          </div>
+          <span className="font-medium text-gray-700">{item.item_name}</span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export default function HistoryPage() {
@@ -83,52 +116,61 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="min-h-screen pb-8">
+    <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-green-600 text-white px-4 py-4 sticky top-0 z-20">
-        <div className="flex items-center justify-between">
-          <Link href="/manager" className="text-green-100 hover:text-white">
-            &rarr; חזרה
-          </Link>
-          <h1 className="text-xl font-bold">היסטוריית קניות</h1>
-          <span className="text-sm text-green-200">{records.length} רשומות</span>
+      <div className="px-4 pt-4 pb-2">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-sm text-gray-400">{records.length} רשומות</span>
+          <h1 className="text-xl font-bold text-gray-800">היסטוריית קניות</h1>
         </div>
-      </header>
+      </div>
 
-      {/* View Toggle */}
-      <div className="flex gap-2 p-4">
-        <button
-          onClick={() => setView('frequency')}
-          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-            view === 'frequency'
-              ? 'bg-green-600 text-white'
-              : 'bg-gray-100 text-gray-600'
-          }`}
-        >
-          לפי תדירות
-        </button>
-        <button
-          onClick={() => setView('timeline')}
-          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-            view === 'timeline'
-              ? 'bg-green-600 text-white'
-              : 'bg-gray-100 text-gray-600'
-          }`}
-        >
-          לפי תאריך
-        </button>
+      {/* Pill toggle */}
+      <div className="px-4 mb-4">
+        <div className="flex bg-gray-100 rounded-full p-1">
+          <button
+            onClick={() => setView('frequency')}
+            className={`flex-1 py-2.5 rounded-full text-sm font-semibold transition-colors ${
+              view === 'frequency'
+                ? 'bg-green-600 text-white shadow-sm'
+                : 'text-gray-500'
+            }`}
+          >
+            לפי תדירות
+          </button>
+          <button
+            onClick={() => setView('timeline')}
+            className={`flex-1 py-2.5 rounded-full text-sm font-semibold transition-colors ${
+              view === 'timeline'
+                ? 'bg-green-600 text-white shadow-sm'
+                : 'text-gray-500'
+            }`}
+          >
+            לפי תאריך
+          </button>
+        </div>
       </div>
 
       {/* Frequency View */}
       {view === 'frequency' && (
-        <div className="bg-white mx-4 rounded-xl overflow-hidden">
+        <div className="mx-4 bg-white rounded-2xl overflow-hidden card-shadow">
           {frequencyData.map((item, i) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-              <span className="text-xl">{item.category_emoji}</span>
-              <span className="flex-1">{item.item_name}</span>
-              <div className="text-left">
-                <span className="text-sm font-semibold text-green-600">{item.count}x</span>
-                <p className="text-xs text-gray-400">{item.last_purchased}</p>
+            <div key={i} className="flex items-center gap-3 px-4 py-4 border-b border-gray-50 last:border-0">
+              {/* Category emoji in circle */}
+              <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">{item.category_emoji}</span>
+              </div>
+
+              {/* Name + category */}
+              <div className="flex-1 min-w-0">
+                <span className="font-bold text-gray-800 block">{item.item_name}</span>
+                <span className="text-sm text-gray-400">{getCategoryName(item.category_emoji)}</span>
+              </div>
+
+              {/* Count + date */}
+              <div className="text-left flex-shrink-0">
+                <span className="text-xl font-bold text-green-600 block">{item.count}x</span>
+                <span className="text-xs text-gray-400">{item.last_purchased}</span>
               </div>
             </div>
           ))}
@@ -139,18 +181,7 @@ export default function HistoryPage() {
       {view === 'timeline' && (
         <div className="px-4 space-y-4">
           {timelineData.map(({ date, items }) => (
-            <div key={date} className="bg-white rounded-xl overflow-hidden">
-              <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
-                <span className="font-semibold text-gray-700">{date}</span>
-                <span className="text-sm text-gray-400 mr-2">({items.length} פריטים)</span>
-              </div>
-              {items.map((item, i) => (
-                <div key={i} className="flex items-center gap-2 px-4 py-2 border-b border-gray-50">
-                  <span>{item.category_emoji}</span>
-                  <span className="text-sm">{item.item_name}</span>
-                </div>
-              ))}
-            </div>
+            <TimelineDateGroup key={date} date={date} items={items} />
           ))}
         </div>
       )}

@@ -124,7 +124,7 @@ export function QuantityBadge({ quantity, onUpdate }: QuantityBadgeProps) {
       <button
         onClick={handleOpen}
         aria-label={`כמות: ${quantity}`}
-        className="text-sm text-green-700 bg-green-100 px-2 py-0.5 rounded-lg font-medium hover:bg-green-200 transition-colors"
+        className="text-sm text-green-700 bg-green-100 px-3 py-1 rounded-full font-medium hover:bg-green-200 transition-colors"
       >
         {quantity}
       </button>
@@ -135,7 +135,7 @@ export function QuantityBadge({ quantity, onUpdate }: QuantityBadgeProps) {
     <button
       onClick={handleOpen}
       aria-label="הוסף כמות"
-      className="text-xs text-gray-400 border border-dashed border-gray-300 px-2 py-0.5 rounded-lg hover:border-gray-400 hover:text-gray-500 transition-colors"
+      className="text-xs text-gray-400 border border-dashed border-gray-300 px-3 py-1 rounded-full hover:border-gray-400 hover:text-gray-500 transition-colors"
     >
       כמות
     </button>
