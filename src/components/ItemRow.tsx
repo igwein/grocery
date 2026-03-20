@@ -1,17 +1,19 @@
 'use client'
 
 import { ShoppingListItem } from '@/lib/types'
+import { QuantityBadge } from './QuantityBadge'
 
 interface ItemRowProps {
   item: ShoppingListItem
   onCheck: (id: string) => void
   onRemove?: (id: string) => void
+  onUpdateQuantity?: (id: string, quantity: string | null) => void
   showRemove?: boolean
   showCheckbox?: boolean
   lastPurchased?: string
 }
 
-export function ItemRow({ item, onCheck, onRemove, showRemove = false, showCheckbox = true, lastPurchased }: ItemRowProps) {
+export function ItemRow({ item, onCheck, onRemove, onUpdateQuantity, showRemove = false, showCheckbox = true, lastPurchased }: ItemRowProps) {
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr)
     return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })
@@ -47,11 +49,16 @@ export function ItemRow({ item, onCheck, onRemove, showRemove = false, showCheck
         )}
       </div>
 
-      {item.quantity && (
+      {onUpdateQuantity ? (
+        <QuantityBadge
+          quantity={item.quantity}
+          onUpdate={(q) => onUpdateQuantity(item.id, q)}
+        />
+      ) : item.quantity ? (
         <span className="text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
           {item.quantity}
         </span>
-      )}
+      ) : null}
 
       {item.notes && (
         <span className="text-sm text-gray-400">{item.notes}</span>

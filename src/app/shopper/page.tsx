@@ -12,6 +12,7 @@ export default function ShopperPage() {
     lastPurchased,
     loading,
     checkItem,
+    updateQuantity,
     addItem,
     finishShopping,
   } = useShoppingList()
@@ -46,6 +47,7 @@ export default function ShopperPage() {
       <ShoppingList
         items={activeItems}
         onCheck={checkItem}
+        onUpdateQuantity={updateQuantity}
         lastPurchased={lastPurchased}
       />
 

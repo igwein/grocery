@@ -159,6 +159,21 @@ export function useShoppingList() {
     }
   }, [])
 
+  const updateQuantity = useCallback(async (id: string, quantity: string | null) => {
+    setItems(prev =>
+      prev.map(i => i.id === id ? { ...i, quantity } : i)
+    )
+
+    const { error } = await supabase
+      .from('shopping_list')
+      .update({ quantity })
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error updating quantity:', error)
+    }
+  }, [])
+
   const removeItem = useCallback(async (id: string) => {
     await supabase
       .from('shopping_list')
@@ -218,6 +233,7 @@ export function useShoppingList() {
     checkItem,
     addItem,
     addItems,
+    updateQuantity,
     removeItem,
     removeAllItems,
     finishShopping,

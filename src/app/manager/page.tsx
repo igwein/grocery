@@ -17,6 +17,7 @@ export default function ManagerPage() {
     loading,
     addItem,
     addItems,
+    updateQuantity,
     removeItem,
     removeAllItems,
   } = useShoppingList()
@@ -215,6 +216,7 @@ export default function ManagerPage() {
         items={activeItems}
         onCheck={() => {}}
         onRemove={handleRemoveItem}
+        onUpdateQuantity={updateQuantity}
         showRemove
         showCheckbox={false}
         lastPurchased={lastPurchased}

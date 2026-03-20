@@ -10,6 +10,7 @@ interface CategoryGroupProps {
   items: ShoppingListItem[]
   onCheck: (id: string) => void
   onRemove?: (id: string) => void
+  onUpdateQuantity?: (id: string, quantity: string | null) => void
   showRemove?: boolean
   showCheckbox?: boolean
   defaultOpen?: boolean
@@ -21,6 +22,7 @@ export function CategoryGroup({
   items,
   onCheck,
   onRemove,
+  onUpdateQuantity,
   showRemove = false,
   showCheckbox = true,
   defaultOpen = true,
@@ -37,7 +39,7 @@ export function CategoryGroup({
       >
         <span className="text-xl">{emoji}</span>
         <span className="font-semibold text-gray-700">{getCategoryName(emoji)}</span>
-        <span className="text-sm text-gray-400 mr-auto">({uncheckedCount})</span>
+        <span className="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5 mr-auto font-medium">{uncheckedCount}</span>
         <svg
           className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
           fill="none"
@@ -56,6 +58,7 @@ export function CategoryGroup({
               item={item}
               onCheck={onCheck}
               onRemove={onRemove}
+              onUpdateQuantity={onUpdateQuantity}
               showRemove={showRemove}
               showCheckbox={showCheckbox}
               lastPurchased={lastPurchased?.[item.item_name]}

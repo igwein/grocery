@@ -205,6 +205,46 @@ describe('useShoppingList', () => {
     )
   })
 
+  it('updateQuantity performs optimistic update and calls Supabase', async () => {
+    const { result } = renderHook(() => useShoppingList())
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    fromCallIndex = 0
+    fromResults.length = 0
+    fromResults.push({ data: null, error: null })
+
+    await act(async () => {
+      await result.current.updateQuantity('1', '2 ק״ג')
+    })
+
+    // Optimistic: Milk should have quantity set
+    expect(result.current.items.find(i => i.id === '1')?.quantity).toBe('2 ק״ג')
+    expect(mockChain.update).toHaveBeenCalledWith({ quantity: '2 ק״ג' })
+    expect(mockChain.eq).toHaveBeenCalledWith('id', '1')
+  })
+
+  it('updateQuantity clears quantity when null', async () => {
+    const { result } = renderHook(() => useShoppingList())
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    fromCallIndex = 0
+    fromResults.length = 0
+    fromResults.push({ data: null, error: null })
+
+    await act(async () => {
+      await result.current.updateQuantity('1', null)
+    })
+
+    expect(result.current.items.find(i => i.id === '1')?.quantity).toBeNull()
+    expect(mockChain.update).toHaveBeenCalledWith({ quantity: null })
+  })
+
   it('removeAllItems deletes only unchecked items', async () => {
     const { result } = renderHook(() => useShoppingList())
 
