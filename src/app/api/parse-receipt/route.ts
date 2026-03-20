@@ -115,12 +115,75 @@ export async function parseReceiptImages(
   return { success: true, data: items }
 }
 
+/**
+ * Upload images to Supabase Storage and create a receipts row.
+ * Shared by both parse and store-only flows.
+ */
+async function uploadAndCreateReceipt(files: File[]): Promise<{ receiptId: string; imageUrls: string[] }> {
+  const supabase = createServerClient()
+  const receiptId = crypto.randomUUID()
+  const imageUrls: string[] = []
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+    const ext = MIME_TO_EXT[file.type] ?? 'jpg'
+    const path = `${receiptId}/${i + 1}.${ext}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('receipts')
+      .upload(path, file, { contentType: file.type })
+
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError)
+    } else {
+      imageUrls.push(path)
+    }
+  }
+
+  const today = new Date().toISOString().split('T')[0]
+  const { error: insertError } = await supabase
+    .from('receipts')
+    .insert({
+      id: receiptId,
+      image_urls: imageUrls,
+      purchased_at: today,
+    })
+
+  if (insertError) {
+    console.error('Error creating receipt row:', insertError)
+  }
+
+  return { receiptId, imageUrls }
+}
+
 export async function POST(request: Request): Promise<NextResponse<ApiResponse<ReceiptParseResult>>> {
   try {
     const formData = await request.formData()
     const files = formData.getAll('images') as File[]
+    const storeOnly = formData.get('storeOnly') === 'true'
 
-    // Convert files to base64 ImageInput
+    if (files.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'No images uploaded.',
+      })
+    }
+
+    // Upload images and create receipt row (both flows need this)
+    const { receiptId } = await uploadAndCreateReceipt(files)
+
+    // Store-only: skip Gemini parsing, return receipt_id with empty items
+    if (storeOnly) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          receipt_id: receiptId,
+          items: [],
+        },
+      })
+    }
+
+    // Parse with Gemini
     const images: ImageInput[] = await Promise.all(
       files.map(async (file) => {
         const buffer = await file.arrayBuffer()
@@ -131,50 +194,16 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse<R
       })
     )
 
-    // Parse receipt with Gemini
     const parseResult = await parseReceiptImages(images)
     if (!parseResult.success || !parseResult.data) {
+      // Parsing failed but receipt is already stored — return receipt_id with error
       return NextResponse.json({
-        success: false,
-        error: parseResult.error,
+        success: true,
+        data: {
+          receipt_id: receiptId,
+          items: [],
+        },
       })
-    }
-
-    // Upload images to Supabase Storage
-    const supabase = createServerClient()
-    const receiptId = crypto.randomUUID()
-    const imageUrls: string[] = []
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      const ext = MIME_TO_EXT[file.type] ?? 'jpg'
-      const path = `${receiptId}/${i + 1}.${ext}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('receipts')
-        .upload(path, file, { contentType: file.type })
-
-      if (uploadError) {
-        console.error('Storage upload error:', uploadError)
-        // Continue without storage — still return parsed items
-      } else {
-        imageUrls.push(path)
-      }
-    }
-
-    // Create receipts row
-    const today = new Date().toISOString().split('T')[0]
-    const { error: insertError } = await supabase
-      .from('receipts')
-      .insert({
-        id: receiptId,
-        image_urls: imageUrls,
-        purchased_at: today,
-      })
-
-    if (insertError) {
-      console.error('Error creating receipt row:', insertError)
-      // Still return parsed items even if receipt row fails
     }
 
     return NextResponse.json({
@@ -188,7 +217,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse<R
     console.error('Error parsing receipt:', error)
     return NextResponse.json({
       success: false,
-      error: 'Failed to parse receipt',
+      error: 'Failed to process receipt',
     })
   }
 }

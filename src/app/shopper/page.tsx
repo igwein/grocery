@@ -102,10 +102,16 @@ export default function ShopperPage() {
     setReceiptError(null)
   }, [receiptPhotoUrls])
 
-  const handleSubmitReceipt = useCallback(async () => {
+  const [receiptStoring, setReceiptStoring] = useState(false)
+
+  const handleSubmitReceipt = useCallback(async (storeOnly = false) => {
     if (receiptPhotos.length === 0) return
 
-    setReceiptParsing(true)
+    if (storeOnly) {
+      setReceiptStoring(true)
+    } else {
+      setReceiptParsing(true)
+    }
     setReceiptError(null)
     setReceiptSaved(false)
 
@@ -117,6 +123,9 @@ export default function ShopperPage() {
       for (const file of compressed) {
         formData.append('images', file)
       }
+      if (storeOnly) {
+        formData.append('storeOnly', 'true')
+      }
 
       const res = await fetch('/api/parse-receipt', {
         method: 'POST',
@@ -125,21 +134,29 @@ export default function ShopperPage() {
       const data = await res.json()
 
       if (data.success && data.data) {
-        setReceiptItems(data.data.items)
-        setReceiptId(data.data.receipt_id)
-        setReceiptDate(new Date().toISOString().split('T')[0])
-        setShowReceiptReview(true)
-        // Clear photos after successful parse
         receiptPhotoUrls.forEach(url => URL.revokeObjectURL(url))
         setReceiptPhotos([])
         setReceiptPhotoUrls([])
+
+        if (storeOnly) {
+          // Store only — no review needed, just show success
+          setReceiptSaved(true)
+          setReceiptId(data.data.receipt_id)
+          setTimeout(() => setReceiptSaved(false), 2000)
+        } else {
+          setReceiptItems(data.data.items)
+          setReceiptId(data.data.receipt_id)
+          setReceiptDate(new Date().toISOString().split('T')[0])
+          setShowReceiptReview(true)
+        }
       } else {
-        setReceiptError(data.error || 'שגיאה בניתוח הקבלה')
+        setReceiptError(data.error || 'שגיאה בעיבוד הקבלה')
       }
     } catch {
-      setReceiptError('שגיאה בניתוח הקבלה')
+      setReceiptError('שגיאה בעיבוד הקבלה')
     } finally {
       setReceiptParsing(false)
+      setReceiptStoring(false)
     }
   }, [receiptPhotos, receiptPhotoUrls])
 
@@ -275,23 +292,46 @@ export default function ShopperPage() {
             </div>
 
             {/* Submit button */}
-            <button
-              onClick={handleSubmitReceipt}
-              disabled={receiptParsing}
-              className="w-full mt-2 bg-green-600 text-white rounded-xl py-2.5 font-bold flex items-center justify-center gap-2 disabled:opacity-60"
-            >
-              {receiptParsing ? (
-                <>
-                  <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  <span>מנתח קבלה...</span>
-                </>
-              ) : (
-                <span>נתח קבלה ({receiptPhotos.length} תמונות)</span>
-              )}
-            </button>
+            {/* Action buttons */}
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => handleSubmitReceipt(false)}
+                disabled={receiptParsing || receiptStoring}
+                className="flex-1 bg-green-600 text-white rounded-xl py-2.5 font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {receiptParsing ? (
+                  <>
+                    <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span>מנתח...</span>
+                  </>
+                ) : (
+                  <span>נתח קבלה</span>
+                )}
+              </button>
+              <button
+                onClick={() => handleSubmitReceipt(true)}
+                disabled={receiptParsing || receiptStoring}
+                className="flex-[0.6] border-2 border-green-600 text-green-700 rounded-xl py-2.5 font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {receiptStoring ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span>שומר...</span>
+                  </>
+                ) : (
+                  <span>שמור בלבד</span>
+                )}
+              </button>
+            </div>
+            {receiptSaved && !showReceiptReview && (
+              <p className="text-green-600 text-sm text-center mt-2 font-medium">הקבלה נשמרה בהצלחה!</p>
+            )}
           </div>
         )}
 
