@@ -4,6 +4,9 @@ import { ReceiptItem, ReceiptParseResult, ApiResponse } from '@/lib/types'
 import { buildReceiptParsePrompt, sanitizeLLMJson, parseLLMJson } from '@/lib/prompt-builder'
 import { CATEGORIES } from '@/lib/categories'
 
+// Increase max duration for Gemini vision processing (default is 10s on Vercel)
+export const maxDuration = 60
+
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_IMAGES = 5
 
