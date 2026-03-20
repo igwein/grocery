@@ -27,16 +27,46 @@ export default function ShopperPage() {
 
   // Receipt scanning state
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [receiptPhotos, setReceiptPhotos] = useState<File[]>([])
+  const [receiptPhotoUrls, setReceiptPhotoUrls] = useState<string[]>([])
   const [receiptItems, setReceiptItems] = useState<ReceiptItem[]>([])
+  const [receiptId, setReceiptId] = useState<string | null>(null)
   const [showReceiptReview, setShowReceiptReview] = useState(false)
   const [receiptDate, setReceiptDate] = useState(() => new Date().toISOString().split('T')[0])
   const [receiptParsing, setReceiptParsing] = useState(false)
   const [receiptError, setReceiptError] = useState<string | null>(null)
   const [receiptSaved, setReceiptSaved] = useState(false)
 
-  const handleReceiptUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotosSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
+
+    const newFiles = Array.from(files)
+    setReceiptPhotos(prev => [...prev, ...newFiles])
+    setReceiptPhotoUrls(prev => [...prev, ...newFiles.map(f => URL.createObjectURL(f))])
+    setReceiptError(null)
+
+    // Reset file input so same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }, [])
+
+  const handleRemovePhoto = useCallback((index: number) => {
+    setReceiptPhotoUrls(prev => {
+      URL.revokeObjectURL(prev[index])
+      return prev.filter((_, i) => i !== index)
+    })
+    setReceiptPhotos(prev => prev.filter((_, i) => i !== index))
+  }, [])
+
+  const handleClearPhotos = useCallback(() => {
+    receiptPhotoUrls.forEach(url => URL.revokeObjectURL(url))
+    setReceiptPhotos([])
+    setReceiptPhotoUrls([])
+    setReceiptError(null)
+  }, [receiptPhotoUrls])
+
+  const handleSubmitReceipt = useCallback(async () => {
+    if (receiptPhotos.length === 0) return
 
     setReceiptParsing(true)
     setReceiptError(null)
@@ -44,7 +74,7 @@ export default function ShopperPage() {
 
     try {
       const formData = new FormData()
-      for (const file of Array.from(files)) {
+      for (const file of receiptPhotos) {
         formData.append('images', file)
       }
 
@@ -55,9 +85,14 @@ export default function ShopperPage() {
       const data = await res.json()
 
       if (data.success && data.data) {
-        setReceiptItems(data.data)
+        setReceiptItems(data.data.items)
+        setReceiptId(data.data.receipt_id)
         setReceiptDate(new Date().toISOString().split('T')[0])
         setShowReceiptReview(true)
+        // Clear photos after successful parse
+        receiptPhotoUrls.forEach(url => URL.revokeObjectURL(url))
+        setReceiptPhotos([])
+        setReceiptPhotoUrls([])
       } else {
         setReceiptError(data.error || 'שגיאה בניתוח הקבלה')
       }
@@ -65,10 +100,8 @@ export default function ShopperPage() {
       setReceiptError('שגיאה בניתוח הקבלה')
     } finally {
       setReceiptParsing(false)
-      // Reset file input so same file can be re-selected
-      if (fileInputRef.current) fileInputRef.current.value = ''
     }
-  }, [])
+  }, [receiptPhotos, receiptPhotoUrls])
 
   const handleRemoveReceiptItem = useCallback((index: number) => {
     setReceiptItems(prev => prev.filter((_, i) => i !== index))
@@ -83,10 +116,11 @@ export default function ShopperPage() {
       category_emoji: item.category_emoji,
       purchased_at: receiptDate,
       source: 'receipt',
+      receipt_id: receiptId,
     }])
 
     setReceiptItems(prev => prev.filter((_, i) => i !== index))
-  }, [receiptItems, receiptDate, addToHistory])
+  }, [receiptItems, receiptDate, receiptId, addToHistory])
 
   const handleSaveReceipt = useCallback(async () => {
     if (receiptItems.length === 0) return
@@ -96,6 +130,7 @@ export default function ShopperPage() {
       category_emoji: item.category_emoji,
       purchased_at: receiptDate,
       source: 'receipt',
+      receipt_id: receiptId,
     }))
 
     await addToHistory(entries)
@@ -103,9 +138,10 @@ export default function ShopperPage() {
     setTimeout(() => {
       setShowReceiptReview(false)
       setReceiptItems([])
+      setReceiptId(null)
       setReceiptSaved(false)
     }, 1500)
-  }, [receiptItems, receiptDate, addToHistory])
+  }, [receiptItems, receiptDate, receiptId, addToHistory])
 
   if (loading) {
     return (
@@ -134,37 +170,97 @@ export default function ShopperPage() {
         </div>
       </header>
 
-      {/* Receipt Scan Button */}
+      {/* Receipt Scan Section */}
       <div className="px-4 pt-3">
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={receiptParsing}
-          className="w-full bg-white rounded-2xl py-3 px-4 card-shadow flex items-center justify-center gap-2 text-green-700 font-semibold disabled:opacity-60"
-        >
-          {receiptParsing ? (
-            <>
-              <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              <span>מנתח קבלה...</span>
-            </>
-          ) : (
-            <>
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <span>סרוק קבלה</span>
-            </>
-          )}
-        </button>
+        {receiptPhotos.length === 0 ? (
+          /* Initial button — no photos yet */
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={receiptParsing}
+            className="w-full bg-white rounded-2xl py-3 px-4 card-shadow flex items-center justify-center gap-2 text-green-700 font-semibold disabled:opacity-60"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>סרוק קבלה</span>
+          </button>
+        ) : (
+          /* Photo preview panel */
+          <div className="bg-white rounded-2xl p-3 card-shadow">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-gray-700">
+                {receiptPhotos.length} תמונות קבלה
+              </span>
+              <button
+                onClick={handleClearPhotos}
+                className="text-xs text-gray-400"
+              >
+                נקה הכל
+              </button>
+            </div>
+
+            {/* Thumbnails */}
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {receiptPhotoUrls.map((url, i) => (
+                <div key={i} className="relative flex-shrink-0">
+                  <img
+                    src={url}
+                    alt={`קבלה ${i + 1}`}
+                    className="w-16 h-20 object-cover rounded-lg border border-gray-200"
+                  />
+                  <button
+                    onClick={() => handleRemovePhoto(i)}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+
+              {/* Add more button */}
+              {receiptPhotos.length < 5 && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-16 h-20 flex-shrink-0 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:border-green-400 hover:text-green-500"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="text-[10px] mt-0.5">הוסף</span>
+                </button>
+              )}
+            </div>
+
+            {/* Submit button */}
+            <button
+              onClick={handleSubmitReceipt}
+              disabled={receiptParsing}
+              className="w-full mt-2 bg-green-600 text-white rounded-xl py-2.5 font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              {receiptParsing ? (
+                <>
+                  <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  <span>מנתח קבלה...</span>
+                </>
+              ) : (
+                <span>נתח קבלה ({receiptPhotos.length} תמונות)</span>
+              )}
+            </button>
+          </div>
+        )}
+
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
           multiple
-          onChange={handleReceiptUpload}
+          onChange={handlePhotosSelected}
           className="hidden"
         />
         {receiptError && (
@@ -282,6 +378,7 @@ export default function ShopperPage() {
                 onClick={() => {
                   setShowReceiptReview(false)
                   setReceiptItems([])
+                  setReceiptId(null)
                 }}
                 className="text-gray-400 p-1"
               >

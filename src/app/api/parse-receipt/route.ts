@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
-import { ReceiptItem, ApiResponse } from '@/lib/types'
+import { ReceiptItem, ReceiptParseResult, ApiResponse } from '@/lib/types'
 import { buildReceiptParsePrompt, sanitizeLLMJson, parseLLMJson } from '@/lib/prompt-builder'
 import { CATEGORIES } from '@/lib/categories'
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_IMAGES = 5
+
+const MIME_TO_EXT: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+}
 
 export interface ImageInput {
   data: string
@@ -106,7 +112,7 @@ export async function parseReceiptImages(
   return { success: true, data: items }
 }
 
-export async function POST(request: Request): Promise<NextResponse<ApiResponse<ReceiptItem[]>>> {
+export async function POST(request: Request): Promise<NextResponse<ApiResponse<ReceiptParseResult>>> {
   try {
     const formData = await request.formData()
     const files = formData.getAll('images') as File[]
@@ -122,8 +128,59 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse<R
       })
     )
 
-    const result = await parseReceiptImages(images)
-    return NextResponse.json(result)
+    // Parse receipt with Gemini
+    const parseResult = await parseReceiptImages(images)
+    if (!parseResult.success || !parseResult.data) {
+      return NextResponse.json({
+        success: false,
+        error: parseResult.error,
+      })
+    }
+
+    // Upload images to Supabase Storage
+    const supabase = createServerClient()
+    const receiptId = crypto.randomUUID()
+    const imageUrls: string[] = []
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const ext = MIME_TO_EXT[file.type] ?? 'jpg'
+      const path = `${receiptId}/${i + 1}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('receipts')
+        .upload(path, file, { contentType: file.type })
+
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError)
+        // Continue without storage — still return parsed items
+      } else {
+        imageUrls.push(path)
+      }
+    }
+
+    // Create receipts row
+    const today = new Date().toISOString().split('T')[0]
+    const { error: insertError } = await supabase
+      .from('receipts')
+      .insert({
+        id: receiptId,
+        image_urls: imageUrls,
+        purchased_at: today,
+      })
+
+    if (insertError) {
+      console.error('Error creating receipt row:', insertError)
+      // Still return parsed items even if receipt row fails
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        receipt_id: receiptId,
+        items: parseResult.data,
+      },
+    })
   } catch (error) {
     console.error('Error parsing receipt:', error)
     return NextResponse.json({

@@ -11,6 +11,16 @@ export interface PurchaseRecord {
   category_emoji: string
   purchased_at: string
   source: string
+  receipt_id: string | null
+  created_at: string
+}
+
+export interface Receipt {
+  id: string
+  image_urls: string[]
+  purchased_at: string
+  store_name: string | null
+  total: string | null
   created_at: string
 }
 
@@ -38,6 +48,11 @@ export interface ReceiptItem {
   category_emoji: string
   quantity: string | null
   price: string | null
+}
+
+export interface ReceiptParseResult {
+  receipt_id: string
+  items: ReceiptItem[]
 }
 
 export interface ApiResponse<T> {

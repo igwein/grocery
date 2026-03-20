@@ -222,14 +222,21 @@ export function useShoppingList() {
   }, [items])
 
   const addToHistory = useCallback(async (
-    entries: { item_name: string; category_emoji: string; purchased_at: string; source: string }[]
+    entries: { item_name: string; category_emoji: string; purchased_at: string; source: string; receipt_id?: string | null }[]
   ) => {
     if (entries.length === 0) return
 
     // Insert into purchase history
+    const rows = entries.map(e => ({
+      item_name: e.item_name,
+      category_emoji: e.category_emoji,
+      purchased_at: e.purchased_at,
+      source: e.source,
+      ...(e.receipt_id ? { receipt_id: e.receipt_id } : {}),
+    }))
     const { error: historyError } = await supabase
       .from('purchase_history')
-      .insert(entries)
+      .insert(rows)
 
     if (historyError) {
       console.error('Error saving to history:', historyError)
