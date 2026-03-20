@@ -167,33 +167,43 @@ export default function HistoryPage() {
   }, [records])
 
   const timelineData = useMemo(() => {
-    const grouped = new Map<string, PurchaseRecord[]>()
+    const grouped = new Map<string, { items: PurchaseRecord[]; receiptIds: Set<string> }>()
 
+    // Group purchase history by date
     for (const r of records) {
       if (!grouped.has(r.purchased_at)) {
-        grouped.set(r.purchased_at, [])
+        grouped.set(r.purchased_at, { items: [], receiptIds: new Set() })
       }
-      grouped.get(r.purchased_at)!.push(r)
+      const group = grouped.get(r.purchased_at)!
+      group.items.push(r)
+      if (r.receipt_id) group.receiptIds.add(r.receipt_id)
+    }
+
+    // Also include standalone receipts (not linked to any purchase_history rows)
+    const linkedReceiptIds = new Set<string>()
+    for (const r of records) {
+      if (r.receipt_id) linkedReceiptIds.add(r.receipt_id)
+    }
+    for (const [id, receipt] of receipts) {
+      if (!linkedReceiptIds.has(id)) {
+        const date = receipt.purchased_at
+        if (!grouped.has(date)) {
+          grouped.set(date, { items: [], receiptIds: new Set() })
+        }
+        grouped.get(date)!.receiptIds.add(id)
+      }
     }
 
     return Array.from(grouped.entries())
       .sort(([a], [b]) => b.localeCompare(a))
-      .map(([date, items]) => {
-        // Collect unique receipt IDs for this date
-        const receiptIdSet = new Set<string>()
-        for (const item of items) {
-          if (item.receipt_id) receiptIdSet.add(item.receipt_id)
-        }
-
-        return {
-          date,
-          items: items.sort((a, b) =>
-            getCategoryOrder(a.category_emoji) - getCategoryOrder(b.category_emoji)
-          ),
-          receiptIds: Array.from(receiptIdSet),
-        }
-      })
-  }, [records])
+      .map(([date, { items, receiptIds }]) => ({
+        date,
+        items: items.sort((a, b) =>
+          getCategoryOrder(a.category_emoji) - getCategoryOrder(b.category_emoji)
+        ),
+        receiptIds: Array.from(receiptIds),
+      }))
+  }, [records, receipts])
 
   if (loading) {
     return (
