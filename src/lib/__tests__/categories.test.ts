@@ -8,8 +8,8 @@ import {
 
 describe('categories', () => {
   describe('CATEGORIES', () => {
-    it('has 24 categories', () => {
-      expect(CATEGORIES).toHaveLength(24)
+    it('has 25 categories', () => {
+      expect(CATEGORIES).toHaveLength(25)
     })
 
     it('has unique order values', () => {
@@ -24,8 +24,8 @@ describe('categories', () => {
   })
 
   describe('CATEGORY_MAP', () => {
-    it('has 24 entries', () => {
-      expect(CATEGORY_MAP.size).toBe(24)
+    it('has 25 entries', () => {
+      expect(CATEGORY_MAP.size).toBe(25)
     })
   })
 

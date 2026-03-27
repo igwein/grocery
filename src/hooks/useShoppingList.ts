@@ -174,6 +174,26 @@ export function useShoppingList() {
     }
   }, [])
 
+  const updateCategory = useCallback(async (id: string, categoryEmoji: string) => {
+    const item = items.find(i => i.id === id)
+    if (!item) return
+
+    setItems(prev =>
+      prev.map(i => i.id === id ? { ...i, category_emoji: categoryEmoji } : i)
+    )
+
+    await supabase
+      .from('shopping_list')
+      .update({ category_emoji: categoryEmoji })
+      .eq('id', id)
+
+    // Also fix the catalog so future additions use the correct category
+    await supabase
+      .from('items_catalog')
+      .update({ category_emoji: categoryEmoji })
+      .eq('name', item.item_name)
+  }, [items])
+
   const removeItem = useCallback(async (id: string) => {
     await supabase
       .from('shopping_list')
@@ -266,6 +286,7 @@ export function useShoppingList() {
     addItem,
     addItems,
     updateQuantity,
+    updateCategory,
     removeItem,
     removeAllItems,
     addToHistory,

@@ -30,6 +30,7 @@ export const CATEGORIES: Category[] = [
   { emoji: '🧻', name: 'ניקיון', order: 22 },
   { emoji: '🛀', name: 'היגיינה', order: 23 },
   { emoji: '🍽', name: 'חד פעמי', order: 24 },
+  { emoji: '📦', name: 'אחר', order: 99 },
 ]
 
 export const CATEGORY_MAP = new Map(CATEGORIES.map(c => [c.emoji, c]))

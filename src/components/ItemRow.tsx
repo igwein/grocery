@@ -8,6 +8,7 @@ interface ItemRowProps {
   onCheck: (id: string) => void
   onRemove?: (id: string) => void
   onUpdateQuantity?: (id: string, quantity: string | null) => void
+  onChangeCategory?: (id: string) => void
   showRemove?: boolean
   showCheckbox?: boolean
   lastPurchased?: string
@@ -19,6 +20,7 @@ export function ItemRow({
   onCheck,
   onRemove,
   onUpdateQuantity,
+  onChangeCategory,
   showRemove = false,
   showCheckbox = true,
   lastPurchased,
@@ -54,6 +56,20 @@ export function ItemRow({
               </svg>
             )}
           </div>
+        )}
+
+        {/* Category emoji badge (manager only) */}
+        {!isShopper && onChangeCategory && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onChangeCategory(item.id)
+            }}
+            className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg active:bg-gray-200 transition-colors"
+            title="שנה קטגוריה"
+          >
+            {item.category_emoji}
+          </button>
         )}
 
         {/* Name + meta */}

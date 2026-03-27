@@ -11,6 +11,7 @@ interface CategoryGroupProps {
   onCheck: (id: string) => void
   onRemove?: (id: string) => void
   onUpdateQuantity?: (id: string, quantity: string | null) => void
+  onChangeCategory?: (id: string) => void
   showRemove?: boolean
   showCheckbox?: boolean
   defaultOpen?: boolean
@@ -24,6 +25,7 @@ export function CategoryGroup({
   onCheck,
   onRemove,
   onUpdateQuantity,
+  onChangeCategory,
   showRemove = false,
   showCheckbox = true,
   defaultOpen = true,
@@ -72,6 +74,7 @@ export function CategoryGroup({
                 onCheck={onCheck}
                 onRemove={onRemove}
                 onUpdateQuantity={onUpdateQuantity}
+                onChangeCategory={onChangeCategory}
                 showRemove={showRemove}
                 showCheckbox={showCheckbox}
                 lastPurchased={lastPurchased?.[item.item_name]}

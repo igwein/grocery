@@ -5,6 +5,7 @@ import { useShoppingList } from '@/hooks/useShoppingList'
 import { ShoppingList } from '@/components/ShoppingList'
 import { AddItemInput } from '@/components/AddItemInput'
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton'
+import { CategoryPicker } from '@/components/CategoryPicker'
 import { AISuggestion, ShoppingListItem } from '@/lib/types'
 import { getCategoryOrder, getCategoryName } from '@/lib/categories'
 
@@ -18,6 +19,7 @@ export default function ManagerPage() {
     addItem,
     addItems,
     updateQuantity,
+    updateCategory,
     removeItem,
     removeAllItems,
   } = useShoppingList()
@@ -29,6 +31,7 @@ export default function ManagerPage() {
   const [removedItems, setRemovedItems] = useState<ShoppingListItem[]>([])
   const [showRemoved, setShowRemoved] = useState(false)
   const [showBought, setShowBought] = useState(false)
+  const [categoryEditItemId, setCategoryEditItemId] = useState<string | null>(null)
 
   const handleGenerate = async () => {
     setGenerating(true)
@@ -80,6 +83,17 @@ export default function ManagerPage() {
     }
     await removeItem(id)
   }, [activeItems, removeItem])
+
+  const handleChangeCategory = useCallback((id: string) => {
+    setCategoryEditItemId(id)
+  }, [])
+
+  const handleCategorySelected = useCallback(async (emoji: string) => {
+    if (categoryEditItemId) {
+      await updateCategory(categoryEditItemId, emoji)
+      setCategoryEditItemId(null)
+    }
+  }, [categoryEditItemId, updateCategory])
 
   const handleRestoreItem = useCallback(async (item: ShoppingListItem) => {
     await addItem(item.item_name, item.category_emoji, 'manager')
@@ -227,6 +241,7 @@ export default function ManagerPage() {
         onCheck={() => {}}
         onRemove={handleRemoveItem}
         onUpdateQuantity={updateQuantity}
+        onChangeCategory={handleChangeCategory}
         showRemove
         showCheckbox={false}
         lastPurchased={lastPurchased}
@@ -310,6 +325,15 @@ export default function ManagerPage() {
 
       {/* Floating Add Button */}
       <FloatingActionButton onClick={() => setShowAddItem(true)} />
+
+      {/* Category Picker Modal */}
+      {categoryEditItemId && (
+        <CategoryPicker
+          onSelect={handleCategorySelected}
+          onClose={() => setCategoryEditItemId(null)}
+          currentEmoji={items.find(i => i.id === categoryEditItemId)?.category_emoji}
+        />
+      )}
 
       {/* Add Item Modal */}
       {showAddItem && (

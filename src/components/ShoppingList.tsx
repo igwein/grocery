@@ -10,13 +10,14 @@ interface ShoppingListProps {
   onCheck: (id: string) => void
   onRemove?: (id: string) => void
   onUpdateQuantity?: (id: string, quantity: string | null) => void
+  onChangeCategory?: (id: string) => void
   showRemove?: boolean
   showCheckbox?: boolean
   lastPurchased?: Record<string, string>
   variant?: 'manager' | 'shopper'
 }
 
-export function ShoppingList({ items, onCheck, onRemove, onUpdateQuantity, showRemove = false, showCheckbox = true, lastPurchased, variant }: ShoppingListProps) {
+export function ShoppingList({ items, onCheck, onRemove, onUpdateQuantity, onChangeCategory, showRemove = false, showCheckbox = true, lastPurchased, variant }: ShoppingListProps) {
   const groupedItems = useMemo(() => {
     const groups = new Map<string, ShoppingListItem[]>()
 
@@ -52,6 +53,7 @@ export function ShoppingList({ items, onCheck, onRemove, onUpdateQuantity, showR
           onCheck={onCheck}
           onRemove={onRemove}
           onUpdateQuantity={onUpdateQuantity}
+          onChangeCategory={onChangeCategory}
           showRemove={showRemove}
           showCheckbox={showCheckbox}
           lastPurchased={lastPurchased}

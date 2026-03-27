@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { CatalogItem } from '@/lib/types'
-import { CATEGORIES, getCategoryName } from '@/lib/categories'
+import { getCategoryName } from '@/lib/categories'
 import { fuzzyMatch } from '@/lib/fuzzy-match'
+import { CategoryPicker } from './CategoryPicker'
 
 interface CatalogItemWithHistory extends CatalogItem {
   lastPurchased: string | null
@@ -86,15 +87,19 @@ export function AddItemInput({ onAdd, onClose, currentItemNames = [] }: AddItemI
     // Don't close - let manager add multiple items
   }
 
+  const DEFAULT_CATEGORY = '📦'
+
   const handleSubmitNew = () => {
     if (!query.trim()) return
 
-    if (!selectedCategory) {
+    if (!selectedCategory && !showCategoryPicker) {
+      // Show category picker as a suggestion, but don't block
       setShowCategoryPicker(true)
       return
     }
 
-    onAdd(query.trim(), selectedCategory)
+    // Add with selected category or default uncategorized
+    onAdd(query.trim(), selectedCategory ?? DEFAULT_CATEGORY)
     setQuery('')
     setSelectedCategory(null)
     setShowCategoryPicker(false)
@@ -167,34 +172,36 @@ export function AddItemInput({ onAdd, onClose, currentItemNames = [] }: AddItemI
               ))}
 
               {isNewItem && (
-                <button
-                  onClick={handleSubmitNew}
-                  className="w-full bg-green-500 text-white py-3 text-lg font-semibold mx-4 mt-3 rounded-xl"
-                  style={{ width: 'calc(100% - 2rem)' }}
-                >
-                  הוסף &quot;{query.trim()}&quot;
-                </button>
+                <div className="mx-4 mt-3 space-y-2">
+                  <button
+                    onClick={handleSubmitNew}
+                    className="w-full bg-green-500 text-white py-3 text-lg font-semibold rounded-xl"
+                  >
+                    הוסף &quot;{query.trim()}&quot;
+                  </button>
+                  {showCategoryPicker && (
+                    <button
+                      onClick={() => {
+                        onAdd(query.trim(), DEFAULT_CATEGORY)
+                        setQuery('')
+                        setShowCategoryPicker(false)
+                      }}
+                      className="w-full text-gray-500 py-2 text-sm font-medium"
+                    >
+                      הוסף בלי קטגוריה
+                    </button>
+                  )}
+                </div>
               )}
             </>
           )}
         </div>
 
         {showCategoryPicker && (
-          <div className="p-4 border-t border-gray-200">
-            <p className="text-sm text-gray-500 mb-2">בחר קטגוריה:</p>
-            <div className="grid grid-cols-6 gap-2">
-              {CATEGORIES.map(cat => (
-                <button
-                  key={cat.emoji}
-                  onClick={() => handleCategorySelect(cat.emoji)}
-                  className="text-2xl p-2 rounded-lg hover:bg-gray-100 flex flex-col items-center"
-                  title={cat.name}
-                >
-                  {cat.emoji}
-                </button>
-              ))}
-            </div>
-          </div>
+          <CategoryPicker
+            onSelect={handleCategorySelect}
+            onClose={() => setShowCategoryPicker(false)}
+          />
         )}
       </div>
     </div>
