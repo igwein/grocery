@@ -56,6 +56,7 @@ export default function ShopperPage() {
     removeItem,
     addToHistory,
     finishShopping,
+    finishing,
   } = useShoppingList()
 
   const allItemNames = useMemo(() => [...activeItems, ...doneItems].map(i => i.item_name), [activeItems, doneItems])
@@ -441,13 +442,14 @@ export default function ShopperPage() {
                 ביטול
               </button>
               <button
-                onClick={() => {
-                  finishShopping()
+                disabled={finishing}
+                onClick={async () => {
+                  await finishShopping()
                   setShowFinishConfirm(false)
                 }}
-                className="flex-1 bg-green-600 text-white rounded-xl py-3 font-bold"
+                className="flex-1 bg-green-600 text-white rounded-xl py-3 font-bold disabled:opacity-50"
               >
-                אישור
+                {finishing ? 'שומר...' : 'אישור'}
               </button>
             </div>
           </div>

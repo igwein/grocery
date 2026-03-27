@@ -212,34 +212,42 @@ export function useShoppingList() {
     }
   }, [])
 
+  const [finishing, setFinishing] = useState(false)
+
   const finishShopping = useCallback(async () => {
+    if (finishing) return
     const checkedItems = items.filter(i => i.is_checked)
     if (checkedItems.length === 0) return
 
-    // Move checked items to purchase history
-    const historyRows = checkedItems.map(item => ({
-      item_name: item.item_name,
-      category_emoji: item.category_emoji,
-      purchased_at: new Date().toISOString().split('T')[0],
-      source: 'app',
-    }))
+    setFinishing(true)
+    try {
+      // Move checked items to purchase history (upsert to ignore duplicates)
+      const historyRows = checkedItems.map(item => ({
+        item_name: item.item_name,
+        category_emoji: item.category_emoji,
+        purchased_at: new Date().toISOString().split('T')[0],
+        source: 'app',
+      }))
 
-    const { error: historyError } = await supabase
-      .from('purchase_history')
-      .insert(historyRows)
+      const { error: historyError } = await supabase
+        .from('purchase_history')
+        .upsert(historyRows, { onConflict: 'item_name,purchased_at,source', ignoreDuplicates: true })
 
-    if (historyError) {
-      console.error('Error saving to history:', historyError)
-      return
+      if (historyError) {
+        console.error('Error saving to history:', historyError)
+        return
+      }
+
+      // Remove checked items from shopping list
+      const checkedIds = checkedItems.map(i => i.id)
+      await supabase
+        .from('shopping_list')
+        .delete()
+        .in('id', checkedIds)
+    } finally {
+      setFinishing(false)
     }
-
-    // Remove checked items from shopping list
-    const checkedIds = checkedItems.map(i => i.id)
-    await supabase
-      .from('shopping_list')
-      .delete()
-      .in('id', checkedIds)
-  }, [items])
+  }, [items, finishing])
 
   const addToHistory = useCallback(async (
     entries: { item_name: string; category_emoji: string; purchased_at: string; source: string; receipt_id?: string | null }[]
@@ -291,6 +299,7 @@ export function useShoppingList() {
     removeAllItems,
     addToHistory,
     finishShopping,
+    finishing,
     refetch: fetchItems,
   }
 }

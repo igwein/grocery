@@ -283,8 +283,8 @@ describe('useShoppingList', () => {
       await result.current.finishShopping()
     })
 
-    // Should have inserted to purchase_history
-    expect(mockChain.insert).toHaveBeenCalled()
+    // Should have upserted to purchase_history
+    expect(mockChain.upsert).toHaveBeenCalled()
     // Should have deleted checked items
     expect(mockChain.in).toHaveBeenCalledWith('id', ['2'])
   })
