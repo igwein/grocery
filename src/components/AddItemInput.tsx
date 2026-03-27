@@ -3,9 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { CatalogItem } from '@/lib/types'
-import { getCategoryName } from '@/lib/categories'
 import { fuzzyMatch } from '@/lib/fuzzy-match'
-import { CategoryPicker } from './CategoryPicker'
 
 interface CatalogItemWithHistory extends CatalogItem {
   lastPurchased: string | null
@@ -21,8 +19,6 @@ export function AddItemInput({ onAdd, onClose, currentItemNames = [] }: AddItemI
   const [query, setQuery] = useState('')
   const [allItems, setAllItems] = useState<CatalogItemWithHistory[]>([])
   const [loadingItems, setLoadingItems] = useState(true)
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [showCategoryPicker, setShowCategoryPicker] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -92,23 +88,8 @@ export function AddItemInput({ onAdd, onClose, currentItemNames = [] }: AddItemI
   const handleSubmitNew = () => {
     if (!query.trim()) return
 
-    if (!selectedCategory && !showCategoryPicker) {
-      // Show category picker as a suggestion, but don't block
-      setShowCategoryPicker(true)
-      return
-    }
-
-    // Add with selected category or default uncategorized
-    onAdd(query.trim(), selectedCategory ?? DEFAULT_CATEGORY)
-    setQuery('')
-    setSelectedCategory(null)
-    setShowCategoryPicker(false)
-  }
-
-  const handleCategorySelect = (emoji: string) => {
-    setSelectedCategory(emoji)
-    setShowCategoryPicker(false)
-    onAdd(query.trim(), emoji)
+    // Add immediately with default category — user can fix category later
+    onAdd(query.trim(), DEFAULT_CATEGORY)
     setQuery('')
   }
 
@@ -172,37 +153,18 @@ export function AddItemInput({ onAdd, onClose, currentItemNames = [] }: AddItemI
               ))}
 
               {isNewItem && (
-                <div className="mx-4 mt-3 space-y-2">
-                  <button
-                    onClick={handleSubmitNew}
-                    className="w-full bg-green-500 text-white py-3 text-lg font-semibold rounded-xl"
-                  >
-                    הוסף &quot;{query.trim()}&quot;
-                  </button>
-                  {showCategoryPicker && (
-                    <button
-                      onClick={() => {
-                        onAdd(query.trim(), DEFAULT_CATEGORY)
-                        setQuery('')
-                        setShowCategoryPicker(false)
-                      }}
-                      className="w-full text-gray-500 py-2 text-sm font-medium"
-                    >
-                      הוסף בלי קטגוריה
-                    </button>
-                  )}
-                </div>
+                <button
+                  onClick={handleSubmitNew}
+                  className="w-full bg-green-500 text-white py-3 text-lg font-semibold mx-4 mt-3 rounded-xl"
+                  style={{ width: 'calc(100% - 2rem)' }}
+                >
+                  הוסף &quot;{query.trim()}&quot;
+                </button>
               )}
             </>
           )}
         </div>
 
-        {showCategoryPicker && (
-          <CategoryPicker
-            onSelect={handleCategorySelect}
-            onClose={() => setShowCategoryPicker(false)}
-          />
-        )}
       </div>
     </div>
   )

@@ -135,7 +135,7 @@ describe('AddItemInput', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('shows category picker when submitting new item', async () => {
+  it('adds new item immediately with default category', async () => {
     const user = userEvent.setup()
     render(<AddItemInput {...defaultProps} />)
 
@@ -151,8 +151,6 @@ describe('AddItemInput', () => {
 
     await user.click(screen.getByText(/הוסף.*מוצר חדש/))
 
-    await waitFor(() => {
-      expect(screen.getByText('בחר קטגוריה:')).toBeInTheDocument()
-    })
+    expect(defaultProps.onAdd).toHaveBeenCalledWith('מוצר חדש', '📦')
   })
 })
